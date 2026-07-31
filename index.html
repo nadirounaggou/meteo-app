@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Météo</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --border: #e5e7eb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .card {
+    background: var(--card);
+    width: 100%;
+    max-width: 420px;
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 28px 24px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  form { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  button {
+    padding: 10px 16px;
+    font-size: 1rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  #result {
+    margin-top: 20px;
+    text-align: center;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hidden { display: none; }
+  .city-name { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; }
+  .temp { font-size: 2.6rem; font-weight: 700; line-height: 1; margin-bottom: 8px; }
+  .condition { color: var(--muted); }
+  .error {
+    color: #dc2626;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  .loading { color: var(--muted); }
+  .loading::after {
+    content: "";
+    display: inline-block;
+    width: 14px; height: 14px;
+    margin-left: 8px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 480px) {
+    form { flex-direction: column; }
+    button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <h1>Météo</h1>
+    <form id="form">
+      <input type="text" id="city" placeholder="Entrez une ville…" autocomplete="off">
+      <button type="submit" id="btn">Voir la météo</button>
+    </form>
+    <div id="result"></div>
+  </main>
+
+<script>
+const WEATHER_CODES = {
+  "0": "Ciel clair",
+  "1": "Peu nuageux",
+  "2": "Partiellement nuageux",
+  "3": "Couvert",
+  "45": "Brouillard",
+  "48": "Brouillard givrant",
+  "51": "Pluie légère",
+  "53": "Pluie modérée",
+  "55": "Pluie forte",
+  "56": "Pluie verglaçante légère",
+  "57": "Pluie verglaçante forte",
+  "61": "Pluie légère",
+  "63": "Pluie modérée",
+  "65": "Pluie forte",
+  "66": "Pluie verglaçante légère",
+  "67": "Pluie verglaçante forte",
+  "71": "Neige légère",
+  "73": "Neige modérée",
+  "75": "Neige forte",
+  "77": "Grains de neige",
+  "80": "Averses légères",
+  "81": "Averses modérées",
+  "82": "Averses fortes",
+  "85": "Averses de neige",
+  "86": "Averses de neige fortes",
+  "95": "Orage",
+  "96": "Orage avec grêle",
+  "99": "Orage violent avec grêle"
+};
+
+const form = document.getElementById("form");
+const input = document.getElementById("city");
+const btn = document.getElementById("btn");
+const result = document.getElementById("result");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const city = input.value.trim();
+  if (!city) {
+    showError("Veuillez saisir une ville.");
+    return;
+  }
+  setLoading();
+  try {
+    const { lat, lon, name } = await geocode(city);
+    const weather = await getForecast(lat, lon);
+    render(name, weather);
+  } catch (err) {
+    showError(err.message || "Une erreur est survenue. Réessayez.");
+  }
+});
+
+async function geocode(city) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fr`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Erreur de connexion au service de géocodage.");
+  const data = await res.json();
+  if (!data.results || data.results.length === 0) {
+    throw new Error("Ville introuvable. Vérifiez le nom et réessayez.");
+  }
+  const r = data.results[0];
+  return { lat: r.latitude, lon: r.longitude, name: r.name };
+}
+
+async function getForecast(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Erreur de connexion au service météo.");
+  return await res.json();
+}
+
+function render(cityName, data) {
+  const temp = data.current.temperature_2m;
+  const code = String(data.current.weather_code);
+  const condition = WEATHER_CODES[code] || "Conditions inconnues";
+  result.innerHTML = `
+    <div>
+      <div class="city-name">${escapeHtml(cityName)}</div>
+      <div class="temp">${Math.round(temp)}°C</div>
+      <div class="condition">${escapeHtml(condition)}</div>
+    </div>
+  `;
+}
+
+function showError(message) {
+  result.className = "error";
+  result.textContent = message;
+}
+
+function setLoading() {
+  result.className = "loading";
+  result.textContent = "Chargement…";
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
