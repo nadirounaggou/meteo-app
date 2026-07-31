@@ -324,23 +324,24 @@ const themeBtn = document.getElementById("theme");
 let units = localStorage.getItem(LS.units) || "c";
 let lastData = null;
 let lastPlace = "";
+let lastLat = null;
+let lastLon = null;
+let lastCountry = "";
 
-const map = L.map("map", { zoomControl: true }).setView([20, 0], 2);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap'
-}).addTo(map);
+let map = null;
 let marker = null;
-map.on("click", async (e) => {
-  const { lat, lng } = e.latlng;
-  await loadWeather({ lat, lon: lng, name: `${lat.toFixed(3)}, ${lng.toFixed(3)}` });
-});
-
-initTheme();
-initUnits();
-renderRecent();
-setBg(0, 1);
-restoreLastCity();
+function initMap() {
+  if (typeof L === "undefined" || !document.getElementById("map")) return;
+  map = L.map("map", { zoomControl: true }).setView([20, 0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  map.on("click", async (e) => {
+    const { lat, lng } = e.latlng;
+    await loadWeather({ lat, lon: lng, name: `${lat.toFixed(3)}, ${lng.toFixed(3)}` });
+  });
+}
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -369,7 +370,7 @@ unitsBtn.addEventListener("click", () => {
   units = units === "c" ? "f" : "c";
   localStorage.setItem(LS.units, units);
   initUnits();
-  if (lastData) render(lastData, lastPlace);
+  if (lastData) render(lastData, lastPlace, lastLat, lastLon, lastCountry);
 });
 
 themeBtn.addEventListener("click", () => {
@@ -478,6 +479,9 @@ async function loadWeather(place) {
     const data = await getForecast(place.lat, place.lon);
     lastData = data;
     lastPlace = place.name;
+    lastLat = place.lat;
+    lastLon = place.lon;
+    lastCountry = place.country || "";
     render(data, place.name, place.lat, place.lon, place.country);
     if (place.name !== "Ma position" && place.name.includes(",") === false) saveRecent(place.name);
   } catch (err) {
@@ -591,6 +595,7 @@ function buildDays(daily) {
 }
 
 function placeMarker(lat, lon, placeName, cur) {
+  if (!map) return;
   const w = getWeather(cur.weather_code);
   const popup = `<strong>${escapeHtml(placeName)}</strong><br>${formatTemp(cur.temperature_2m)} — ${escapeHtml(w.label)}`;
   if (marker) marker.remove();
@@ -656,6 +661,13 @@ function persistLastCity() {
   if (city) localStorage.setItem(LS.lastCity, city);
 }
 window.addEventListener("beforeunload", persistLastCity);
+
+initTheme();
+initUnits();
+renderRecent();
+initMap();
+setBg(0, 1);
+restoreLastCity();
 </script>
 </body>
 </html>
