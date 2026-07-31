@@ -1,12 +1,15 @@
 # Météo
 
-Petite application météo en un seul fichier HTML (CSS et JS inclus). Saisissez une ville et affichez la température actuelle et le temps qu'il fait.
+Application météo en un seul fichier HTML (CSS et JS inclus). Saisissez une ville, cliquez sur la carte ou utilisez votre position pour afficher la météo.
 
 ## Fonctionnalités
 
 - Recherche d'une ville avec géocodage (Open-Meteo, sans clé API)
-- Température actuelle et conditions météo traduites en français
-- Gestion des erreurs (ville introuvable, problème réseau)
+- Carte interactive (Leaflet + OpenStreetMap) : marqueur sur la ville cherchée, clic n'importe où pour la météo locale
+- Température actuelle, ressenti, humidité, vent, pression, précipitations
+- Courbe des températures sur 24 h (SVG maison, sans dépendance) et prévisions sur 7 jours
+- Gestion des erreurs (ville introuvable, géolocalisation refusée, problème réseau)
+- Unités °C / °F, thème clair / sombre, recherches récentes et dernière ville mémorisées (localStorage)
 - Design sobre et responsive
 
 ## Utilisation
